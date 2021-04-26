@@ -12,6 +12,61 @@
 import numpy as np
 import math
 # import cv2
+import sys
+
+sys.path.append("../../Google Drive/Python Scripts/")
+
+import utils as utl
+
+PRETEXT_TASKS = [
+    'NOISE',
+    'NOISE_SNR',
+    'SCALED',
+    'VERTICAL_FLIP',
+    'HORIZONTAL_FLIP',
+    'PERMUTATION'
+]
+
+
+def create_pretext_dataset(x, pretext_task, batch_size, one_hot=True):
+    """
+    :param x: numpy array
+    :param pretext_task: string name of pretext task
+    :param batch_size: (int)
+    :param one_hot: Bool, default True
+    :return: features and labels (X, Y)
+    """
+    assert pretext_task in PRETEXT_TASKS
+
+    if pretext_task == 'NOISE':
+        x_ = add_noise(x, 0.5)
+
+    elif pretext_task == 'NOISE_SNR':
+        x_ = add_noise_with_snr(x, 0.5)
+
+    elif pretext_task == 'SCALED':
+        x_ = scaled(x, 2)
+
+    elif pretext_task == 'VERTICAL_FLIP':
+        x_ = negate(x)
+
+    elif pretext_task == 'HORIZONTAL_FLIP':
+        x_ = hor_flip(x)
+
+    elif pretext_task == 'PERMUTATION':
+        x_ = permute(x, 3)
+
+    else:
+        raise ValueError("Invalid pretext task %s", pretext_task)
+
+    x_p = np.concatenate([x, x_])
+    y_p = np.concatenate([np.zeros(x.shape[0], dtype=int),
+                          np.ones(x_.shape[0], dtype=int)])
+
+    if one_hot:
+        y_p = utl.get_hot_labels(y_p)
+
+    return utl.create_tf_dataset(x_p, y_p, batch_size=batch_size)
 
 
 # First the pre-text tasks from 1.

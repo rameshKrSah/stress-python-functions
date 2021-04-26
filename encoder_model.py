@@ -14,8 +14,8 @@ def encoder_block(input_shape):
     """
     inputs = keras.layers.Input(shape=input_shape)
 
-    x = keras.layers.Conv1D(filters=32, kernel_size=24, strides=1, padding='valid', input_shape=self.in_shape,
-                            activation=keras.activations.relu, name='encoder_input_layer')(inputs)
+    x = keras.layers.Conv1D(filters=32, kernel_size=24, strides=1, padding='valid', activation=keras.activations.relu,
+                            name='encoder_input_layer')(inputs)
 
     x = keras.layers.MaxPool1D(pool_size=4, strides=2)(x)
 
@@ -49,7 +49,7 @@ class PretextModel(keras.Model):
         self.n_classes = n_classes
 
         # get the encoder block
-        self.encoder_block = EncoderBlock(self.in_shape)
+        self.encoder_block = encoder_block(self.in_shape)
 
         # add some layers for pretext tasks
         self.max_pool =  keras.layers.MaxPool1D(pool_size=4, strides=2, name='max_pool')
@@ -73,6 +73,7 @@ class PretextModel(keras.Model):
         x = self.out_layer(x)
 
         return x
+
 
     def get_encoder_block(self):
         return self.encoder_block
