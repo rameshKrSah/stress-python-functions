@@ -14,7 +14,7 @@ import math
 # import cv2
 import sys
 
-sys.path.append("../../Google Drive/Python Scripts/")
+sys.path.append("../Python Scripts/")
 
 import utils as utl
 
@@ -28,12 +28,13 @@ PRETEXT_TASKS = [
 ]
 
 
-def create_pretext_dataset(x, pretext_task, batch_size, one_hot=True):
+def create_pretext_dataset(x, pretext_task, batch_size, one_hot=True, tf_dataset=False):
     """
     :param x: numpy array
     :param pretext_task: string name of pretext task
     :param batch_size: (int)
     :param one_hot: Bool, default True
+    :param tf_dataset: Bool, If True return TF dataset else numpy arrays. Default False
     :return: features and labels (X, Y)
     """
     assert pretext_task in PRETEXT_TASKS
@@ -63,10 +64,17 @@ def create_pretext_dataset(x, pretext_task, batch_size, one_hot=True):
     y_p = np.concatenate([np.zeros(x.shape[0], dtype=int),
                           np.ones(x_.shape[0], dtype=int)])
 
+    print(f"x-vanilla {x.shape[0]}")
+    print(f"x-pretext {x_.shape[0]}")
+    print(f"total {x_p.shape[0]}")
+
     if one_hot:
         y_p = utl.get_hot_labels(y_p)
 
-    return utl.create_tf_dataset(x_p, y_p, batch_size=batch_size)
+    if tf_dataset:
+        return utl.create_tf_dataset(x_p, y_p, batch_size=batch_size)
+    else:
+        return utl.split_into_train_val_test(x_p, y_p, test_split=0.25)
 
 
 # First the pre-text tasks from 1.
@@ -129,17 +137,19 @@ def permute(signal, pieces):
         signal: numpy array (batch x window)
         pieces: number of segments along time
     """
-    pieces = int(np.ceil(np.shape(signal)[0] / (np.shape(signal)[0] // pieces)).tolist())
-    piece_length = int(np.shape(signal)[0] // pieces)
+    piece_length = int(signal.shape[1] // pieces)
+    pieces = int(np.ceil(signal.shape[1] / piece_length).tolist())
 
     sequence = list(range(0, pieces))
+    np.random.seed(0)
     np.random.shuffle(sequence)
 
-    permuted_signal = np.reshape(signal[:(np.shape(signal)[0] // pieces * pieces)], (pieces, piece_length)).tolist() + [
-        signal[(np.shape(signal)[0] // pieces * pieces):]]
-    permuted_signal = np.asarray(permuted_signal)[sequence]
-    permuted_signal = np.hstack(permuted_signal)
+    indices = []
+    for sp in sequence:
+        indices.extend(list(range(sp * 80, sp * 80 + 80)))
+    print(sequence)
 
+    permuted_signal = signal[:, indices, ]
     return permuted_signal
 
 

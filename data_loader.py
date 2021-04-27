@@ -2,7 +2,7 @@
 import numpy as np
 import sys
 
-sys.path.append("../../Google Drive/Python Scripts/")
+sys.path.append("../Python Scripts/")
 
 import utils as utl
 
@@ -29,7 +29,7 @@ def load_dataset(stress_path, not_stress_path, reshape = True, train_test = True
         x = x.reshape(-1, x.shape[1], 1)
 
     if train_test:
-        x_tr, x_val, x_ts, y_tr, y_val, y_ts = utl.split_into_train_val_test(x, y)
+        x_tr, x_val, x_ts, y_tr, y_val, y_ts = utl.split_into_train_val_test(x, y, test_split=0.25)
         return x_tr, x_val, x_ts, y_tr, y_val, y_ts
     else:
         return x, y
