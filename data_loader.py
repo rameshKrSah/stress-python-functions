@@ -43,3 +43,25 @@ def load_dataset(stress_path, not_stress_path, reshape = True, train_test = True
     else:
         return x, y
 
+def create_dataset(stress_segments, not_stress_segments, reshape=True, train_test=True, balance_classes=False):
+    # select equal number of not-stress and stress segments
+    if balance_classes == True:
+        not_stress_segments = utl.select_random_samples(not_stress_segments, stress_segments.shape[0])
+
+    # concatenate the stress and not-stress data
+    x = np.concatenate([stress_segments, not_stress_segments], axis=0)
+    y = np.concatenate([
+        np.ones(len(stress_segments), dtype=int),
+        np.zeros(len(not_stress_segments), dtype=int)
+    ], axis=0)
+
+    # reshape is instructed
+    if reshape:
+        x = x.reshape(-1, x.shape[1], 1)
+
+    # split into train, test, and val if instructed
+    if train_test:
+        x_tr, x_val, x_ts, y_tr, y_val, y_ts = utl.split_into_train_val_test(x, y, test_split=0.25)
+        return x_tr, x_val, x_ts, y_tr, y_val, y_ts
+    else:
+        return x, y

@@ -263,10 +263,10 @@ def odd_segment(signal):
 
     np.random.seed(33)
     # get the indices of the sub-segments that will be swapped
-    swap_position = np.random.randint(low=0, high=3, n_segments)
+    swap_position = np.random.randint(low=0, high=3, size=n_segments)
 
     # get the indices of the segments in signal from which sub-segments to be swapped is extracted
-    swap_segment_index = np.random.randint(low=0, high=n_segments, n_segments)
+    swap_segment_index = np.random.randint(low=0, high=n_segments, size=n_segments)
 
     swapped_signal = np.copy(signal)
     for i, j, sp in zip(swap_segment_index, swap_position, swapped_signal):
@@ -387,7 +387,7 @@ def signal_mixing(signal):
 
     # each segment is mixed with another random one. 
     # we don't check whether we are mixing a segment with itself or not. 
-    indices = np.random.randint(low=0, high=n_segments, size=n_segments
+    indices = np.random.randint(low=0, high=n_segments, size=n_segments)
 
     # mixed or blended segments. We can also use a coefficient for mixing the signals. 
     mixed_segments = np.add(signal, signal[indices])
