@@ -44,8 +44,32 @@ PRETEXT_TASKS = [
     'PERMUTATION'
 ]
 
+def create_pretext_dataset_multiclass(x):
+    data_len = x.shape[0]
 
-def create_pretext_dataset(x, pretext_task, batch_size, one_hot=True, tf_dataset=False):
+    x_p = np.copy(x)
+    y_p = np.zeros(data_len, dtype=int)
+
+    # now add the data for all pre-text tasks
+    x_p = np.concatenate([x_p, add_noise(x, 0.5)])
+    y_p = np.concatenate([y_p, np.ones(data_len, dtype=int) * 1])
+    
+    x_p = np.concatenate([x_p, scaled(x, 2)])
+    y_p = np.concatenate([y_p, np.ones(data_len, dtype=int) * 2])
+
+    x_p = np.concatenate([x_p, negate(x)])
+    y_p = np.concatenate([y_p, np.ones(data_len, dtype=int) * 3])
+
+    x_p = np.concatenate([x_p, hor_flip(x)])
+    y_p = np.concatenate([y_p, np.ones(data_len, dtype=int) * 4])
+
+    x_p = np.concatenate([x_p, permute(x, 3)])
+    y_p = np.concatenate([y_p, np.ones(data_len, dtype=int) * 5])
+
+    return utl.split_into_train_val_test(x_p, y_p, test_split=0.25)
+
+
+def create_pretext_dataset(x, pretext_task):
     """
     :param x: numpy array
     :param pretext_task: string name of pretext task
@@ -79,7 +103,7 @@ def create_pretext_dataset(x, pretext_task, batch_size, one_hot=True, tf_dataset
         x_ = np.concatenate([x_, scaled(x, 2)])
         x_ = np.concatenate([x_, negate(x)])
         x_ = np.concatenate([x_, hor_flip(x)])
-        x_ = np.concatenate([x_, permute(x)])
+        x_ = np.concatenate([x_, permute(x, 3)])
     else:
         raise ValueError("Invalid pretext task %s", pretext_task)
 
@@ -91,13 +115,7 @@ def create_pretext_dataset(x, pretext_task, batch_size, one_hot=True, tf_dataset
     print(f"x-pretext {x_.shape[0]}")
     print(f"total {x_p.shape[0]}")
 
-    if one_hot:
-        y_p = utl.get_hot_labels(y_p)
-
-    if tf_dataset:
-        return utl.create_tf_dataset(x_p, y_p, batch_size=batch_size)
-    else:
-        return utl.split_into_train_val_test(x_p, y_p, test_split=0.25)
+    return utl.split_into_train_val_test(x_p, y_p, test_split=0.25)
 
 """
     Paper: https://arxiv.org/abs/1910.07497

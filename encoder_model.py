@@ -105,7 +105,7 @@ class PretextModel(keras.Model):
 
         self.dense = keras.layers.Dense(units=512, activation=keras.activations.relu, name='dense_1'),
 
-        self.out_layer = keras.layers.Dense(units=self.n_classes, activation=keras.activations.sigmoid,
+        self.out_layer = keras.layers.Dense(units=self.n_classes, activation=keras.activations.softmax,
                                             name='output_layer')
 
     def call(self, input):
