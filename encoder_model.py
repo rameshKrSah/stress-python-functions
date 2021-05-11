@@ -1,6 +1,5 @@
 from tensorflow import keras
 
-
 def encoder_block(x):
     """
     Encoder block for the pretext model
