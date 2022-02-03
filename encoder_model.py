@@ -70,7 +70,7 @@ def get_pretext_model(input_shape, n_classes):
     x = classification_block(x)
 
     # finally the output layer
-    x = keras.layers.Dense(units=n_classes, activation=keras.activations.sigmoid, name='output_layer')(x)
+    x = keras.layers.Dense(units=n_classes, activation=keras.activations.softmax, name='output_layer')(x)
 
     # create the model
     model = keras.models.Model(inputs, x, name='pretext_model')

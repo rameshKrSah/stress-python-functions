@@ -28,6 +28,7 @@ def create_dataset(stress, not_stress, path=True, reshape=True, train_test=True,
         not_stress_segments = not_stress
 
     # select equal number of not-stress and stress segments
+    # majority class undersampling
     if balance_classes == True:
         not_stress_segments = utl.select_random_samples(not_stress_segments, stress_segments.shape[0])
 
@@ -38,21 +39,34 @@ def create_dataset(stress, not_stress, path=True, reshape=True, train_test=True,
         np.zeros(len(not_stress_segments), dtype=int)
     ], axis=0)
 
+    # del stress_segments
+    # del not_stress_segments
+    print(f"X: {x.shape}, Y: {y.shape}")
+
     # if oversampling specified
     if (oversampling_method != None) & (balance_classes == False):
-        x, y = oversampling_method.fit_resample(x, y)
+        if len(x.shape) == 2:
+            x, y = oversampling_method.fit_resample(x, y)
+        elif len(x.shape) == 3:
+            org_shape = x.shape
+            x, y = oversampling_method.fit_resample(x.reshape(-1, org_shape[1] * org_shape[2]), y)
+            x = x.reshape(-1, org_shape[1], org_shape[2])
 
     # reshape is instructed
     if reshape:
-        x = x.reshape(-1, x.shape[1], 1)
+        if len(x.shape) == 2:
+            x = x.reshape(-1, x.shape[1], 1)
+        elif len(x.shape) == 3:
+            # the case for acceleration data with 3 channels
+            x = x.transpose([0, 2, 1])
 
+    print(f"After reshape X: {x.shape}, Y: {y.shape}")
     # split into train, test, and val if instructed
     if train_test:
-        x_tr, x_val, x_ts, y_tr, y_val, y_ts = utl.split_into_train_val_test(x, y, test_split=0.25)
+        x_tr, x_val, x_ts, y_tr, y_val, y_ts = utl.split_into_train_val_test(x, y, test_split=0.3)
         return x_tr, x_ts, y_tr, y_ts, utl.get_hot_labels(y_tr), utl.get_hot_labels(y_ts)
     else:
-        return x, y
-
+        return x, y, utl.get_hot_labels(y)
 
 def load_wesad_data(baseline, amusement, stressed, combine_amusement=False, reshape=True, train_test=True):
     baseline_segments = utl.read_data(baseline)

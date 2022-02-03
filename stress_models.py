@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow import keras
 
 def get_simple_cnn_model(input_shape, metrics, learning_rate):
-    """Create a simple CNN model for EDA based stress classification. 
+    """Create a simple CNN model for EDA based stress binary classification. 
 
     input_shape -- Tuple, needed for the first layer
     metrics -- list, metrics to optimize
@@ -35,7 +35,8 @@ def get_simple_cnn_model(input_shape, metrics, learning_rate):
 
 
 def get_supervised_balance_adarp_model(input_shape, metrics, learning_rate):
-    """After hyperparameterization optimization the best set of hyperparameters were:
+    """Returns a CNN model for balanced stress dataset.
+    After hyperparameterization optimization the best set of hyperparameters were:
         1. batch_size = 147
         2. CNN1 filters = 100
         3. CNN1 kernel size = 5
@@ -76,7 +77,8 @@ def get_supervised_balance_adarp_model(input_shape, metrics, learning_rate):
     return temp_model
 
 def get_supervised_full_adarp_model(input_shape, metrics, learning_rate):
-    """After hyperparameterization optimization the best set of hyperparameters were:
+    """Returns a large CNN model for binary stress classification.
+    After hyperparameterization optimization the best set of hyperparameters were:
         1. Batch size = 100
         2. CNN1 filters = 250
         3. CNN1 kernel size = 5
@@ -107,15 +109,14 @@ def get_supervised_full_adarp_model(input_shape, metrics, learning_rate):
         keras.layers.Dropout(rate = 0.1),
         
         keras.layers.Dense(units = 64, activation=tf.nn.relu),
-        keras.layers.Dense(units = 1, activation = tf.nn.sigmoid)
+        keras.layers.Dense(units = 2, activation = tf.nn.softmax)
     ])
     
-    temp_model.compile(loss = keras.losses.BinaryCrossentropy(), 
+    temp_model.compile(loss = keras.losses.categorical_crossentropy, 
                        optimizer = keras.optimizers.Adam(learning_rate = learning_rate), 
                       metrics = metrics)
     
     return temp_model
-
 
 
 def get_transfer_wesad_model(input_shape, metrics, learning_rate):
@@ -136,28 +137,6 @@ def get_transfer_wesad_model(input_shape, metrics, learning_rate):
         For test loss of 0.2275
         Return the CNN model
     """
-    # temp_model = keras.Sequential([
-    #     keras.layers.Conv1D(filters=100, kernel_size = (10), strides = 1, activation = tf.nn.relu, 
-    #                         input_shape = input_shape, padding='same'),
-      
-    #     keras.layers.Conv1D(filters = 50, kernel_size = (5), strides = 1, 
-    #                         activation = tf.nn.relu, padding='same'),
-    #     keras.layers.GlobalMaxPool1D(),
-        
-    #     keras.layers.Dense(units = 128, activation = tf.nn.relu),
-    #     keras.layers.Dropout(rate = 0.2),
-
-    #     keras.layers.Dense(units = 64, activation = tf.nn.relu),
-    #     keras.layers.Dropout(rate = 0.3),
-        
-    #     keras.layers.Dense(units = 128, activation=tf.nn.relu, name='penultimate_layer'),
-    #     keras.layers.Dense(units = 2, activation = tf.nn.softmax)
-    # ])
-    
-    # temp_model.compile(loss = keras.losses.categorical_crossentropy, 
-    #                    optimizer = keras.optimizers.Adam(learning_rate = learning_rate), 
-    #                   metrics = metrics)
-
     temp_model = keras.Sequential([
         keras.layers.Conv1D(filters = 100, kernel_size = (5), strides = 1, activation = tf.nn.relu, 
                             input_shape = input_shape),

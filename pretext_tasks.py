@@ -25,24 +25,46 @@
 """
 
 import numpy as np
-import math
-# import cv2
+import cvxEDA as cvx
 import sys
 from scipy.stats import kurtosis, skew
 from scipy.signal import find_peaks
+from joblib import Parallel, delayed
 
 sys.path.append("../Python Scripts/")
-
 import utils as utl
 
 PRETEXT_TASKS = [
-    'NOISE',
-    'NOISE_SNR',
+    'TONIC',
     'SCALED',
-    'VERTICAL_FLIP',
+    'PHASIC',
     'HORIZONTAL_FLIP',
-    'PERMUTATION'
 ]
+
+def create_pretext_multiclass_dataset_partwise(x):
+    data_len = x.shape[0]
+    task_size = int(data_len / len(PRETEXT_TASKS) + 1)
+
+    print(f"Total length {data_len}, # Tasks {len(PRETEXT_TASKS)}, Task length {task_size}")
+    
+    from_ = 0
+    x_p = np.copy(x[from_:from_+task_size])
+    from_ += task_size
+    y_p = np.zeros(len(x_p), dtype=int)
+
+    for i, task in enumerate(PRETEXT_TASKS):
+        print(f"Pre-Text Task is {task}")
+        tp = get_task_data(x[from_:from_+task_size], task)
+        
+        x_p = np.concatenate([x_p, tp])
+        y_p = np.concatenate([y_p, np.ones(len(tp), dtype=int) * i+1])
+        from_ += task_size
+
+    # normalize the data before splitting into train test set
+    # x_p = preprocessing.normalization(x_p)
+    x_p = x_p.reshape(-1, x_p.shape[1], 1)
+    return utl.split_into_train_val_test(x_p, y_p, test_split=0.25)
+
 
 def create_pretext_dataset_multiclass(x):
     data_len = x.shape[0]
@@ -66,19 +88,18 @@ def create_pretext_dataset_multiclass(x):
     x_p = np.concatenate([x_p, permute(x, 3)])
     y_p = np.concatenate([y_p, np.ones(data_len, dtype=int) * 5])
 
+    # normalize the data before splitting into train test set
+    # x_p = preprocessing.normalization(x_p)
+    x_p = x_p.reshape(-1, x_p.shape[1], 1)
     return utl.split_into_train_val_test(x_p, y_p, test_split=0.25)
 
-
-def create_pretext_dataset(x, pretext_task):
+def get_task_data(x, pretext_task):
     """
     :param x: numpy array
     :param pretext_task: string name of pretext task
-    :param batch_size: (int)
-    :param one_hot: Bool, default True
-    :param tf_dataset: Bool, If True return TF dataset else numpy arrays. Default False
-    :return: features and labels (X, Y)
+    :return: task data for x
     """
-    assert pretext_task in PRETEXT_TASKS
+    # assert pretext_task in PRETEXT_TASKS
 
     if pretext_task == 'NOISE':
         x_ = add_noise(x, 0.5)
@@ -98,6 +119,64 @@ def create_pretext_dataset(x, pretext_task):
     elif pretext_task == 'PERMUTATION':
         x_ = permute(x, 3)
 
+    elif pretext_task == 'NEGATE':
+        x_ = negate(x)
+
+    elif pretext_task == 'TONIC':
+        x_ = get_tonic_all(x)
+    
+    elif pretext_task == 'PHASIC':
+        x_ = get_phasic_all(x)
+
+    elif pretext_task == 'ALL':
+        x_ = add_noise(x, 0.5)
+        x_ = np.concatenate([x_, scaled(x, 2)])
+        x_ = np.concatenate([x_, negate(x)])
+        x_ = np.concatenate([x_, hor_flip(x)])
+        x_ = np.concatenate([x_, permute(x, 3)])
+    else:
+        raise ValueError("Invalid pretext task %s", pretext_task)
+    
+    return x_
+
+def create_pretext_dataset(x, pretext_task):
+    """
+    :param x: numpy array
+    :param pretext_task: string name of pretext task
+    :param batch_size: (int)
+    :param one_hot: Bool, default True
+    :param tf_dataset: Bool, If True return TF dataset else numpy arrays. Default False
+    :return: features and labels (X, Y)
+    """
+    # assert pretext_task in PRETEXT_TASKS
+
+    if pretext_task == 'NOISE':
+        x_ = add_noise(x, 0.5)
+
+    elif pretext_task == 'NOISE_SNR':
+        x_ = add_noise_with_snr(x, 0.5)
+
+    elif pretext_task == 'SCALED':
+        x_ = scaled(x, 2)
+
+    elif pretext_task == 'VERTICAL_FLIP':
+        x_ = negate(x)
+
+    elif pretext_task == 'HORIZONTAL_FLIP':
+        x_ = hor_flip(x)
+
+    elif pretext_task == 'PERMUTATION':
+        x_ = permute(x, 3)
+
+    elif pretext_task == 'NEGATE':
+        x_ = negate(x)
+
+    elif pretext_task == 'TONIC':
+        x_ = get_tonic_all(x)
+    
+    elif pretext_task == 'PHASIC':
+        x_ = get_phasic_all(x)
+
     elif pretext_task == 'ALL':
         x_ = add_noise(x, 0.5)
         x_ = np.concatenate([x_, scaled(x, 2)])
@@ -115,6 +194,9 @@ def create_pretext_dataset(x, pretext_task):
     print(f"x-pretext {x_.shape[0]}")
     print(f"total {x_p.shape[0]}")
 
+    # normalize the data before splitting into train test set
+    # x_p = preprocessing.normalization(x_p)
+    x_p = x_p.reshape(-1, x_p.shape[1], 1)
     return utl.split_into_train_val_test(x_p, y_p, test_split=0.25)
 
 """
@@ -128,6 +210,43 @@ def create_pretext_dataset(x, pretext_task):
     - Pemutate the sub-segments of a signal window
     - Time warping
 """
+
+def get_phasic_tonic_component(x):
+    phasic_all = []
+    tonic_all = []
+
+    Parallel(n_jobs=-1, verbose=1)(delayed(get_phasic_tonic)(phasic_all, tonic_all, p) for p in x)
+    # tonic_all.append(Parallel(n_jobs=-1, verbose=1)(delayed(get_tonic)(p) for p in x))
+
+    # for p in x:
+    #     phasic, _, tonic, __, ___, ____, _____ = cvx.cvxEDA(p, 1/4)
+    #     phasic_all.append(phasic)
+    #     tonic_all.append(tonic)
+
+    return phasic_all, tonic_all
+
+def get_phasic_all(x):
+    phasic = []
+    phasic.append(Parallel(n_jobs=-1, verbose=1)(delayed(get_phasic)(p) for p in x))
+    return np.array(phasic[0])
+
+def get_tonic_all(x):
+    tonic = []
+    tonic.append(Parallel(n_jobs=-1, verbose=1)(delayed(get_tonic)(p) for p in x))
+    return np.array(tonic[0])
+
+def get_phasic_tonic(p, t, x):
+    phasic, _, tonic, __, ___, ____, _____ = cvx.cvxEDA(x, 1/4)
+    return p.append(phasic), t.append(tonic)
+
+def get_phasic(x):
+    phasic, _, tonic, __, ___, ____, _____ = cvx.cvxEDA(x, 1/4)
+    return phasic
+
+def get_tonic(x):
+    phasic, _, tonic, __, ___, ____, _____ = cvx.cvxEDA(x, 1/4)
+    return tonic
+
 
 # First the pre-text tasks from 1.
 def add_noise(signal, noise_amount):
