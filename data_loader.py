@@ -5,10 +5,8 @@ import sys
 sys.path.append("../Python Scripts/")
 import utils as utl
 
-
 def create_dataset(stress, not_stress, path=True, reshape=True, train_test=True, balance_classes=False, oversampling_method=None):
     """Create dataset given stress and not-stress data or path. 
-    
     
     stress -- path or data of stress class
     not_stress -- path or data of not-stress class
@@ -26,9 +24,8 @@ def create_dataset(stress, not_stress, path=True, reshape=True, train_test=True,
     else:
         stress_segments = stress
         not_stress_segments = not_stress
-
-    # select equal number of not-stress and stress segments
-    # majority class undersampling
+ 
+    # majority class undersampling: randomly drop samples from not-stress class to have equal number samples
     if balance_classes == True:
         not_stress_segments = utl.select_random_samples(not_stress_segments, stress_segments.shape[0])
 
@@ -39,56 +36,96 @@ def create_dataset(stress, not_stress, path=True, reshape=True, train_test=True,
         np.zeros(len(not_stress_segments), dtype=int)
     ], axis=0)
 
-    # del stress_segments
-    # del not_stress_segments
+    # remove segments from memory
+    del stress_segments
+    del not_stress_segments
     print(f"X: {x.shape}, Y: {y.shape}")
 
-    # if oversampling specified
+    x_tr = x
+    y_tr = y
+    x_ts, y_ts = [], []
+
+    # split into train, test
+    if train_test:
+        x_tr, x_ts, y_tr, y_ts = utl.split_into_train_val_test(x, y, test_split=0.3)     
+
+    # SMOTE oversampling to balance the classes. Do this only for the training set
     if (oversampling_method != None) & (balance_classes == False):
-        if len(x.shape) == 2:
-            x, y = oversampling_method.fit_resample(x, y)
-        elif len(x.shape) == 3:
-            org_shape = x.shape
-            x, y = oversampling_method.fit_resample(x.reshape(-1, org_shape[1] * org_shape[2]), y)
-            x = x.reshape(-1, org_shape[1], org_shape[2])
+        if len(x_tr.shape) == 2:
+            x_tr, y_tr = oversampling_method.fit_resample(x_tr, y_tr)
+
+        elif len(x_tr.shape) == 3:
+            org_shape = x_tr.shape
+            x_tr, y_tr = oversampling_method.fit_resample(x_tr.reshape(-1, org_shape[1] * org_shape[2]), y_tr)
+            x_tr = x_tr.reshape(-1, org_shape[1], org_shape[2])
 
     # reshape is instructed
     if reshape:
-        if len(x.shape) == 2:
-            x = x.reshape(-1, x.shape[1], 1)
-        elif len(x.shape) == 3:
+        if len(x_tr.shape) == 2:
+            x_tr = x_tr.reshape(-1, x_tr.shape[1], 1)
+            x_ts = x_ts.reshape(-1, x_ts.shape[1], 1)
+
+        elif len(x_tr.shape) == 3:
             # the case for acceleration data with 3 channels
-            x = x.transpose([0, 2, 1])
+            x_tr = x_tr.transpose([0, 2, 1])
+            x_ts = x_ts.transpose([0, 2, 1])
 
-    print(f"After reshape X: {x.shape}, Y: {y.shape}")
-    # split into train, test, and val if instructed
-    if train_test:
-        x_tr, x_val, x_ts, y_tr, y_val, y_ts = utl.split_into_train_val_test(x, y, test_split=0.3)
-        return x_tr, x_ts, y_tr, y_ts, utl.get_hot_labels(y_tr), utl.get_hot_labels(y_ts)
-    else:
-        return x, y, utl.get_hot_labels(y)
-
-def load_wesad_data(baseline, amusement, stressed, combine_amusement=False, reshape=True, train_test=True):
-    baseline_segments = utl.read_data(baseline)
-    stressed_segments = utl.read_data(stressed)
+    return x_tr, y_tr, x_ts, y_ts
     
-    if combine_amusement:
-        amusement_segments = utl.read_data(amusement)
-        X = np.concatenate([stressed_segments, baseline_segments, amusement_segments], axis = 0)
+def load_wesad_data(baseline_path, amusement_path, stressed_path, combine_amusement=False, reshape=True, train_test=True):
+    """Get training and testing set for the WESAD dataset. 
+    
+    baseline_path: path to the baseline data
+    amusement_path: path to the amusement data
+    stressed_path: path to the stressed data
 
-        Y = np.concatenate([np.ones(stressed_segments.shape[0], dtype=int), 
-                        np.zeros(baseline_segments.shape[0] + amusement_segments.shape[0], dtype=int)])
-    else:
-        X = np.concatenate([stressed_segments, baseline_segments], axis = 0)
+    combine_amusement: whether to combine amusement class or not; default false
+    reshape: whether to reshape the 2d data into 3d or not; default true
+    train_test; whether to split the data into training and testing set or not; default true
 
-        Y = np.concatenate([np.ones(stressed_segments.shape[0], dtype=int), 
-                        np.zeros(baseline_segments.shape[0], dtype=int)])
+    Return features and labels.
+    """
+    X, Y = combine_class_data(baseline_path, amusement_path, stressed_path, combine_amusement)
 
     if reshape:
         X = X.reshape(-1, X.shape[1], 1)
 
     if train_test:
-        x_train, x_val, x_test, y_train, y_val, y_test = utl.split_into_train_val_test(X, Y, test_split=0.25)
+        x_train, x_test, y_train, y_test = utl.split_into_train_test(X, Y, test_split=0.25)
         return x_train, x_test, y_train, y_test, utl.get_hot_labels(y_train), utl.get_hot_labels(y_test)
     else:
         return X, Y
+
+
+def combine_class_data(baseline_path, amusement_path, stressed_path, include_amusement = False):
+    """
+        Load the data for different stress class for the WESAD dataset and return X, Y. 
+        If amusement is included into the baseline class, the labels assigned to amusement is 0 
+        same as that of baseline class. 
+            
+        baseline_path (string): path to baseline data, 
+        amusement_path (string): path to the amusement data,
+        stressed_path (string): path to stressed data
+        include_amusement (Boolean): whether to include amusement data into baseline or not. 
+        By default amusement data is not included into baseline.
+            
+        X, Y : NumPy arrays.
+    """
+    
+    # load the segments
+    baseline_segments = utl.read_data(baseline_path)
+    stress_segments = utl.read_data(stressed_path)
+    
+    # combine the baseline and stress segments
+    X = np.concatenate([baseline_segments, stress_segments], axis = 0)
+    Y = np.concatenate([np.zeros(baseline_segments.shape[0], dtype=int), 
+                       np.ones(stress_segments.shape[0], dtype=int)
+                       ])
+    # include the amusement data is indicated
+    if include_amusement:
+        amusement_segments = utl.read_data(amusement_path)
+        X = np.concatenate([X, amusement_segments])
+        Y = np.concatenate([Y, np.zeros(amusement_segments.shape[0], dtype=int)])
+    
+    return X, Y
+    
