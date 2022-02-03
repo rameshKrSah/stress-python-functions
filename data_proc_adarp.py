@@ -1,13 +1,9 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import csv
 from argparse import ArgumentParser
-
 
 # local imports
 import utils as utl
