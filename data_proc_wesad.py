@@ -9,7 +9,7 @@ import filters as eda_filtering
 import utils as utl
 
 # data directory
-data_dir = "../Data/WESAD/
+data_dir = "../Data/WESAD/"
 
 # folder path to save the data
 data_save_folder = "../Processed Data/WESAD/"
@@ -421,7 +421,7 @@ def segment_sensor_data(data_path, sample_rate, window_duration, overlap_percent
         if len(name) == 0 or len(save_folder) == 0:
             raise ValueError("Expected name and save folder path to save the data")
     
-    window_segments = np.zeros((1, sample_rate * window_duration))
+    window_segments = np.zeros((1, int(sample_rate * window_duration)))
     
     # get the window segments
     for dt_arr in data:
@@ -434,7 +434,8 @@ def segment_sensor_data(data_path, sample_rate, window_duration, overlap_percent
     # the first entry is all zeros. Discard it.
     window_segments = window_segments[1:, ]
     
-    # save the data
-    utl.save_data(save_folder+name+"_segments.pickle", window_segments)
+    if save:
+        # save the data
+        utl.save_data(save_folder+name+"_segments.pickle", window_segments)
     
     return window_segments

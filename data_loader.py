@@ -63,12 +63,14 @@ def create_dataset(stress, not_stress, path=True, reshape=True, train_test=True,
     if reshape:
         if len(x_tr.shape) == 2:
             x_tr = x_tr.reshape(-1, x_tr.shape[1], 1)
-            x_ts = x_ts.reshape(-1, x_ts.shape[1], 1)
+            if x_ts is np.ndarray:
+                x_ts = x_ts.reshape(-1, x_ts.shape[1], 1)
 
         elif len(x_tr.shape) == 3:
             # the case for acceleration data with 3 channels
             x_tr = x_tr.transpose([0, 2, 1])
-            x_ts = x_ts.transpose([0, 2, 1])
+            if x_ts is np.ndarray:
+                x_ts = x_ts.transpose([0, 2, 1])
 
     return x_tr, y_tr, x_ts, y_ts
     

@@ -1,7 +1,5 @@
 import os
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 import csv
 from argparse import ArgumentParser
 
@@ -102,22 +100,48 @@ def get_tag_timestamps(tag_file):
 
     tag_timestamps = []
 
-    count = 0
-    for line in open(tag_file): count += 1
+    # count = 0
+    # for line in open(tag_file): count += 1
 
-    if count < 2:
-        return tag_timestamps
+    # if count < 2:
+    #     return tag_timestamps
 
     # print(f"{count - 1} tags in {tag_file}")
     with open(tag_file, "r") as read_file:
         csv_reader = csv.reader(read_file)
         # skip the header line
-        next(csv_reader)
+        # next(csv_reader)
         for row in csv_reader:
+            # print(row)
             unix_time = float(row[0])
             tag_timestamps.append(unix_time)
 
     return tag_timestamps
+
+
+def verify_tags(data_folder):
+    total_timestamps = 0
+    participants_tags = {}
+
+    for p in participants_folder_names:
+        participants_folder_path = data_folder + p + "/"
+        part_subfolders = os.listdir(participants_folder_path)
+        # print(p)
+
+        temp = 0
+        # for each sub-folder in the participants folder
+        for sub in part_subfolders:
+            path = participants_folder_path + sub
+
+            # get the tag events in this folder
+            tag_timestamps = get_tag_timestamps(path + "/tags.csv")
+
+            temp += len(tag_timestamps)
+            total_timestamps += len(tag_timestamps)
+
+        participants_tags[p] = temp
+        # break
+    return participants_tags, total_timestamps
 
 
 def extract_segments_around_tags(data, tags, segment_size):
@@ -439,6 +463,9 @@ def extract_data_around_tags(data_folder, segment_length, save_part_data=False, 
     bvp_data = []
     temp_data= []
 
+    total_timestamps = 0
+    match = 0
+
     # for each participants
     for p in participants_folder_names:
         # participants data container
@@ -459,12 +486,15 @@ def extract_data_around_tags(data_folder, segment_length, save_part_data=False, 
 
             # get the tag events in this folder
             tag_timestamps = get_tag_timestamps(path + "/tags.csv")
+            total_timestamps += len(tag_timestamps)
 
             # if there are tag events, get the sensor values
             if len(tag_timestamps):
                 if include_eda:
                     # first EDA
                     values = get_eda_data_around_tags(path, tag_timestamps, segment_length)
+                    match += len(values)
+
                     if len(values):
                         eda_data.extend(values)
                         part_eda_data.extend(values)
@@ -508,6 +538,9 @@ def extract_data_around_tags(data_folder, segment_length, save_part_data=False, 
             utl.save_data(output_folder + p + "_HR_TAG.pkl", np.array(part_hr_data))
             utl.save_data(output_folder + p + "_BVP_TAG.pkl", np.array(part_bvp_data))
             utl.save_data(output_folder + p + "_ACC_TAG.pkl", np.array(part_acc_data))
+
+    print("total event markers ", total_timestamps)
+    print("total number of segments ", match)
 
     if include_eda & include_temp & include_hr & include_bvp & include_acc:
         return np.array(eda_data), np.array(temp_data), np.array(hr_data), np.array(bvp_data), np.array(acc_data)

@@ -1,5 +1,37 @@
+from doctest import OutputChecker
+from re import L
 import tensorflow as tf
 from tensorflow import keras
+
+
+def get_cnn_batch_norm_model(input_shape, n_classes, learning_rate, metrics, prev_model=None):
+    input_layer = keras.layers.Input(input_shape)
+
+    conv1 = keras.layers.Conv1D(filters=128, kernel_size=8, padding='same')(input_layer)
+    conv1 = keras.layers.BatchNormalization()(conv1)
+    conv1 = keras.layers.Activation('relu', name='conv1_relu')(conv1)
+
+    conv2 = keras.layers.Conv1D(filters=256, kernel_size=5, padding='same')(conv1)
+    conv2 = keras.layers.BatchNormalization()(conv2)
+    conv2 = keras.layers.Activation('relu', name='conv2_relu')(conv2)
+
+    conv3 = keras.layers.Conv1D(filters=128, kernel_size=3, padding='same')(conv2)
+    conv3 = keras.layers.BatchNormalization()(conv3)
+    conv3 = keras.layers.Activation('relu', name='conv3_relu')(conv3)
+
+    gap_layer = keras.layers.GlobalAveragePooling1D()(conv3)
+    output_layer = keras.layers.Dense(n_classes, activation='softmax', name='output')(gap_layer)
+
+    model = keras.models.Model(inputs=input_layer, outputs=output_layer)
+
+    if prev_model != None:
+        #set the weights of the pre trained model
+        for i in range(len(model.layers) - 1):
+            model.layers[i].set_weights(prev_model.layers[i].get_weights())
+
+    model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(learning_rate=learning_rate), metrics=metrics)
+    return model
+
 
 def get_simple_cnn_model(input_shape, metrics, learning_rate):
     """Create a simple CNN model for EDA based stress binary classification. 
@@ -96,20 +128,20 @@ def get_supervised_full_adarp_model(input_shape, metrics, learning_rate):
     """
     temp_model = keras.Sequential([
         keras.layers.Conv1D(filters=250, kernel_size = (5), strides = 1, activation = tf.nn.relu, 
-                            input_shape = input_shape, padding='same'),
+                            input_shape = input_shape, padding='same', name='conv1'),
       
         keras.layers.Conv1D(filters = 100, kernel_size = (5), strides = 1, 
-                            activation = tf.nn.relu, padding='same'),
+                            activation = tf.nn.relu, padding='same', name='conv2'),
         keras.layers.GlobalMaxPool1D(),
         
-        keras.layers.Dense(units = 256, activation = tf.nn.relu),
+        keras.layers.Dense(units = 256, activation = tf.nn.relu, name='dense1'),
         keras.layers.Dropout(rate = 0.1),
 
-        keras.layers.Dense(units = 128, activation = tf.nn.relu),
+        keras.layers.Dense(units = 128, activation = tf.nn.relu, name='dense2'),
         keras.layers.Dropout(rate = 0.1),
         
-        keras.layers.Dense(units = 64, activation=tf.nn.relu),
-        keras.layers.Dense(units = 2, activation = tf.nn.softmax)
+        keras.layers.Dense(units = 64, activation=tf.nn.relu, name='dense3'),
+        keras.layers.Dense(units = 2, activation = tf.nn.softmax, name='output-dense')
     ])
     
     temp_model.compile(loss = keras.losses.categorical_crossentropy, 
